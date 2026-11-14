@@ -1,7 +1,7 @@
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
-import sqlite3
 
 from database import Database
 
@@ -13,6 +13,25 @@ class DatabaseTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def test_login_account_uses_hashed_password_and_authenticates(self) -> None:
+        self.assertFalse(self.database.has_login_account())
+        with self.assertRaises(ValueError):
+            self.database.create_login_account("operator", "short")
+
+        self.database.create_login_account("operator", "strong-pass-123")
+
+        self.assertTrue(self.database.has_login_account())
+        self.assertTrue(self.database.authenticate("OPERATOR", "strong-pass-123"))
+        self.assertFalse(self.database.authenticate("operator", "wrong-pass"))
+        self.assertFalse(self.database.authenticate("unknown", "strong-pass-123"))
+        with self.database.connect() as connection:
+            row = connection.execute(
+                "SELECT password_salt, password_hash FROM login_account"
+            ).fetchone()
+        self.assertNotEqual(row["password_hash"], b"strong-pass-123")
+        with self.assertRaises(ValueError):
+            self.database.create_login_account("another", "strong-pass-123")
 
     def test_saves_and_lists_match_user_and_entry(self) -> None:
         self.database.save_match(None, 101, "2026-11-14", "Falcons vs Hawks", "Falcons, Hawks")

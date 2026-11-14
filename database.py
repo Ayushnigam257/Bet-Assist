@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+import secrets
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -46,6 +49,8 @@ ENTRY_FIELDS = (
     "runs",
     "yes_no",
 )
+
+PASSWORD_HASH_ITERATIONS = 600_000
 
 
 class Database:
@@ -127,8 +132,66 @@ class Database:
                     yes_no TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
+
+                CREATE TABLE IF NOT EXISTS login_account (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                    password_salt BLOB NOT NULL,
+                    password_hash BLOB NOT NULL
+                );
                 """
             )
+
+    def has_login_account(self) -> bool:
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM login_account WHERE id = 1"
+            ).fetchone()
+        return row is not None
+
+    def create_login_account(self, username: str, password: str) -> None:
+        username = username.strip()
+        if not username:
+            raise ValueError("Enter a username.")
+        if len(password) < 8:
+            raise ValueError("Use a password with at least 8 characters.")
+        salt = secrets.token_bytes(16)
+        password_hash = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), salt, PASSWORD_HASH_ITERATIONS
+        )
+        with self.connect() as connection:
+            if connection.execute(
+                "SELECT 1 FROM login_account WHERE id = 1"
+            ).fetchone():
+                raise ValueError("A login account already exists.")
+            connection.execute(
+                """
+                INSERT INTO login_account
+                    (id, username, password_salt, password_hash)
+                VALUES (1, ?, ?, ?)
+                """,
+                (username, salt, password_hash),
+            )
+
+    def authenticate(self, username: str, password: str) -> bool:
+        with self.connect() as connection:
+            row = connection.execute(
+                """
+                SELECT username, password_salt, password_hash
+                FROM login_account
+                WHERE id = 1 AND username = ? COLLATE NOCASE
+                """,
+                (username.strip(),),
+            ).fetchone()
+        if row is None:
+            return False
+        candidate = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            row["password_salt"],
+            PASSWORD_HASH_ITERATIONS,
+        )
+        return hmac.compare_digest(candidate, row["password_hash"])
 
     def list_matches(self) -> list[sqlite3.Row]:
         with self.connect() as connection:

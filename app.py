@@ -7,6 +7,7 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
 from database import Database
+from shared_login import authenticate as authenticate_shared_login
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -155,6 +156,91 @@ class BettingAssistant(tk.Tk):
             padx=22,
             pady=20,
         ).pack(side="bottom", anchor="w")
+        ttk.Button(
+            self.sidebar,
+            text="Log out",
+            command=self.show_login,
+        ).pack(side="bottom", fill="x", padx=12, pady=(0, 8))
+        self.sidebar.pack_forget()
+        self.show_login()
+
+    def show_login(self) -> None:
+        self.sidebar.pack_forget()
+        for widget in self.content.winfo_children():
+            widget.destroy()
+        self.content.configure(bg=COLORS["background"])
+
+        card = tk.Frame(
+            self.content,
+            bg=COLORS["panel"],
+            padx=36,
+            pady=30,
+            highlightbackground=COLORS["border"],
+            highlightthickness=1,
+        )
+        card.place(relx=0.5, rely=0.46, anchor="center", width=410)
+        tk.Label(
+            card,
+            text="Welcome back",
+            bg=COLORS["panel"],
+            fg=COLORS["text"],
+            font=("Segoe UI Semibold", 20),
+        ).pack(anchor="w")
+        tk.Label(
+            card,
+            text="Sign in to open your Betting Assistant.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            font=("Segoe UI", 9),
+        ).pack(anchor="w", pady=(5, 22))
+
+        self.login_username_var = tk.StringVar()
+        self.login_password_var = tk.StringVar()
+        self.login_error_var = tk.StringVar()
+
+        def add_field(label: str, variable: tk.StringVar, masked: bool = False) -> None:
+            tk.Label(
+                card,
+                text=label,
+                bg=COLORS["panel"],
+                fg=COLORS["text"],
+                font=("Segoe UI Semibold", 9),
+            ).pack(anchor="w", pady=(0, 5))
+            ttk.Entry(
+                card,
+                textvariable=variable,
+                show="*" if masked else "",
+                width=42,
+            ).pack(fill="x", pady=(0, 14), ipady=5)
+
+        add_field("Username", self.login_username_var)
+        add_field("Password", self.login_password_var, masked=True)
+
+        tk.Label(
+            card,
+            textvariable=self.login_error_var,
+            bg=COLORS["panel"],
+            fg="#b42318",
+            font=("Segoe UI", 9),
+        ).pack(anchor="w", pady=(0, 8))
+        button = ttk.Button(
+            card,
+            text="Sign in",
+            style="Accent.TButton",
+            command=self.submit_login,
+        )
+        button.pack(fill="x")
+        self.bind("<Return>", lambda _event: self.submit_login())
+
+    def submit_login(self) -> None:
+        username = self.login_username_var.get()
+        password = self.login_password_var.get()
+        if not authenticate_shared_login(username, password):
+            self.login_error_var.set("Incorrect username or password.")
+            self.login_password_var.set("")
+            return
+        self.unbind("<Return>")
+        self.sidebar.pack(before=self.content, side="left", fill="y")
         self.show_page("Dashboard")
 
     def page_header(self, title: str, subtitle: str) -> tk.Frame:

@@ -22,6 +22,14 @@ If you use another Python installation, run `python app.py` instead. The app cre
 
 The reference screenshots do not define settlement, commission, or team-liability formulas. Reports therefore show recorded gross entry amounts and do not infer those calculations.
 
+## Login
+
+The app checks the shared username and password against a salted PBKDF2 hash bundled in `shared_login_credentials.py`. The current shared username is `main`; clones that include this file will require the same password. Use **Log out** in the sidebar to return to sign-in.
+
+To set a new shared username/password, run `.\.venv\Scripts\python.exe create_shared_login.py`, then commit and distribute the generated `shared_login_credentials.py`. The password itself is entered without being echoed and is not written to the file.
+
+**Important:** this is a deterrent, not owner-only access control. Anyone who can edit a clone can replace the hash or bypass the login; a committed hash can also be attacked offline. Keep the repository private if the shared password is sensitive. Local application data remains in `betting_assistant.db`.
+
 ## Test
 
 ```powershell
