@@ -1,0 +1,2 @@
+# Uses only Python standard-library modules: tkinter and sqlite3.
+# No pip packages are required.
