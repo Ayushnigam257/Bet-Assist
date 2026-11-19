@@ -80,6 +80,9 @@ class Database:
     def initialize(self) -> None:
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as connection:
+            has_state_refs_table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'state_refs'"
+            ).fetchone() is not None
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS matches (
@@ -119,6 +122,11 @@ class Database:
                     show_dibba_user INTEGER NOT NULL DEFAULT 0,
                     cutting_user INTEGER NOT NULL DEFAULT 0,
                     dibba_account INTEGER NOT NULL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS state_refs (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL COLLATE NOCASE UNIQUE
                 );
 
                 CREATE TABLE IF NOT EXISTS entries (
@@ -224,6 +232,18 @@ class Database:
             if "f8_enabled" not in book_columns:
                 connection.execute(
                     "ALTER TABLE books ADD COLUMN f8_enabled INTEGER NOT NULL DEFAULT 0"
+                )
+            user_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(users)")
+            }
+            if not has_state_refs_table and "state_ref" in user_columns:
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO state_refs (name)
+                    SELECT DISTINCT trim(state_ref)
+                    FROM users
+                    WHERE trim(state_ref) <> ''
+                    """
                 )
 
     @staticmethod
@@ -425,6 +445,19 @@ class Database:
                 "SELECT * FROM users ORDER BY name COLLATE NOCASE"
             ).fetchall()
 
+    def list_state_refs(self) -> list[sqlite3.Row]:
+        with self.connect() as connection:
+            return connection.execute(
+                "SELECT id, name FROM state_refs ORDER BY name COLLATE NOCASE"
+            ).fetchall()
+
+    def delete_state_refs(self, state_ref_ids: Sequence[int]) -> None:
+        with self.connect() as connection:
+            for state_ref_id in state_ref_ids:
+                connection.execute(
+                    "DELETE FROM state_refs WHERE id = ?", (state_ref_id,)
+                )
+
     def save_user(self, user_id: int | None, values: dict[str, Any]) -> None:
         numeric_fields = (
             "limit_amount",
@@ -455,6 +488,12 @@ class Database:
                 connection.execute(
                     f"UPDATE users SET {assignments} WHERE id = ?",
                     field_values + [user_id],
+                )
+            state_ref = str(values["state_ref"] or "").strip()
+            if state_ref:
+                connection.execute(
+                    "INSERT OR IGNORE INTO state_refs (name) VALUES (?)",
+                    (state_ref,),
                 )
             self._log(
                 connection,
@@ -1042,6 +1081,12 @@ class Database:
                         users_by_key[key] = user_id
                         imported["users"] += 1
                     user_ids[old_id] = user_id
+                    state_ref = str(values["state_ref"] or "").strip()
+                    if state_ref:
+                        target.execute(
+                            "INSERT OR IGNORE INTO state_refs (name) VALUES (?)",
+                            (state_ref,),
+                        )
 
                 entry_columns = ", ".join(ENTRY_FIELDS)
                 entry_placeholders = ", ".join("?" for _ in ENTRY_FIELDS)
@@ -1129,6 +1174,7 @@ class Database:
                 "settling_balances",
                 "matches",
                 "users",
+                "state_refs",
                 "audit_log",
                 "imported_sources",
             ):

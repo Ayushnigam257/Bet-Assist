@@ -160,6 +160,8 @@ class BettingAssistant(tk.Tk):
                 if page.startswith("Report:"):
                     target = page.split(":", 1)[1]
                     command = lambda mode=target: self.open_report_mode(mode)
+                elif page == "State/Ref":
+                    command = self.open_state_ref_window
                 else:
                     command = lambda target=page: self.show_page(target)
                 submenu.add_command(
@@ -169,7 +171,11 @@ class BettingAssistant(tk.Tk):
 
         add_page_menu(
             "Entry",
-            (("Entry Panel", "Entries"), ("User Entry", "Users")),
+            (
+                ("Entry Panel", "Entries"),
+                ("User Entry", "Users"),
+                ("State/Ref", "State/Ref"),
+            ),
         )
         add_page_menu(
             "Match",
@@ -198,7 +204,6 @@ class BettingAssistant(tk.Tk):
         add_page_menu(
             "Report",
             (
-                ("Connect Report", "Report:Connect Report"),
                 ("Individual Report", "Report:Individual Report"),
                 ("Session Individual Report", "Report:Session Individual Report"),
                 ("User Account", "Report:User Account"),
@@ -383,7 +388,7 @@ class BettingAssistant(tk.Tk):
         self.unbind("<Return>")
         self.logged_in_username = username
         self.set_logged_in_menu()
-        self.show_page("Entries")
+        self.show_page("Workspace")
 
     def login_settings(self) -> bool:
         if self.settings_unlocked:
@@ -651,23 +656,31 @@ class BettingAssistant(tk.Tk):
                 + [str(row["name"]) for row in stored]
             )
         )
-        window = self.report_window("Settling Transaction", "1000x700")
+        window = self.report_window("Settling Transaction", "820x540")
+        window.minsize(720, 500)
         header = tk.Frame(window, bg=COLORS["panel"], padx=8, pady=7)
         header.pack(fill="x", padx=8, pady=(8, 5))
         opening_var = tk.StringVar(value="0.00")
         date_var = tk.StringVar(value=date.today().isoformat())
         closing_var = tk.StringVar(value="0.00")
         ttk.Label(header, text="Opening Balance").grid(row=0, column=0, padx=4)
-        opening_entry = ttk.Entry(header, textvariable=opening_var, width=15)
+        opening_entry = ttk.Entry(header, textvariable=opening_var, width=11)
         opening_entry.grid(row=0, column=1, padx=4)
-        ttk.Label(header, text="Date").grid(row=0, column=2, padx=4)
-        ttk.Entry(header, textvariable=date_var, width=22).grid(
-            row=0, column=3, padx=4
+        date_entry = tk.Entry(
+            header,
+            textvariable=date_var,
+            width=23,
+            justify="center",
+            bg="#f1ae63",
+            fg=COLORS["text"],
+            relief="sunken",
         )
+        date_entry.grid(row=0, column=2, columnspan=2, padx=8, sticky="ew")
         ttk.Label(header, text="Closing Balance").grid(row=0, column=4, padx=4)
         ttk.Label(
-            header, textvariable=closing_var, relief="sunken", width=15
+            header, textvariable=closing_var, relief="sunken", width=11
         ).grid(row=0, column=5, padx=4)
+        header.grid_columnconfigure(2, weight=1)
         body = tk.Frame(window, bg=COLORS["background"])
         body.pack(fill="both", expand=True, padx=8, pady=4)
         body.grid_columnconfigure(0, weight=1)
@@ -678,8 +691,8 @@ class BettingAssistant(tk.Tk):
         name_list = tk.Listbox(
             name_frame,
             exportselection=False,
-            bg="#808080",
-            selectbackground="#ffff80",
+            bg="#ffffff",
+            selectbackground="#d6e5f5",
             selectforeground=COLORS["text"],
         )
         name_list.pack(fill="both", expand=True)
@@ -690,13 +703,13 @@ class BettingAssistant(tk.Tk):
         tree = self.make_tree(
             transaction_frame,
             (
-                ("date", "DATE", 105),
-                ("name", "NAME", 150),
-                ("naam", "NAAM", 95),
-                ("jama", "JAMA", 95),
-                ("balance", "BALANCE", 100),
-                ("charge", "CH", 75),
-                ("code", "CODE", 85),
+                ("date", "DATE", 70),
+                ("name", "NAME", 90),
+                ("naam", "NAAM", 70),
+                ("jama", "JAMA", 70),
+                ("balance", "BALANCE", 80),
+                ("charge", "CH", 60),
+                ("code", "CODE", 60),
             ),
             height=15,
         )
@@ -815,64 +828,62 @@ class BettingAssistant(tk.Tk):
 
         tree.bind("<<TreeviewSelect>>", update_tallied_control)
         previous_button = ttk.Button(header, text="Add Previous Balance")
-        previous_button.grid(row=0, column=6, padx=5)
+        previous_button.grid(row=1, column=5, sticky="e", padx=4, pady=(4, 0))
 
-        form = tk.LabelFrame(
-            window,
-            text="Settlement Entry",
-            bg=COLORS["panel"],
-            fg=COLORS["text"],
-            padx=8,
-            pady=6,
-        )
-        form.pack(fill="x", padx=8, pady=(3, 5))
+        form = tk.Frame(window, bg=COLORS["panel"], padx=5, pady=4)
+        form.pack(fill="x", padx=8, pady=(3, 8))
 
         def add_form_field(
-            label: str, variable: tk.StringVar, row: int, column: int, width: int = 16
+            label: str, variable: tk.StringVar, column: int, width: int = 12
         ) -> ttk.Entry:
             ttk.Label(form, text=label).grid(
-                row=row, column=column, sticky="w", padx=3, pady=2
+                row=0, column=column, sticky="w", padx=3, pady=(0, 2)
             )
             entry = ttk.Entry(form, textvariable=variable, width=width)
-            entry.grid(row=row + 1, column=column, sticky="ew", padx=3, pady=(0, 3))
+            entry.grid(row=1, column=column, sticky="ew", padx=3)
             return entry
 
-        add_form_field("Date (YYYY-MM-DD)", date_var, 0, 0, 15)
-        ttk.Label(form, text="Name").grid(row=0, column=1, sticky="w", padx=3)
+        add_form_field("Balance", balance_var, 0, 9)
+        ttk.Label(form, text="Name").grid(row=0, column=1, sticky="w", padx=3, pady=(0, 2))
         form_name_combo = ttk.Combobox(
             form,
             textvariable=name_var,
             values=name_values,
             state="normal",
-            width=22,
+            width=16,
         )
-        form_name_combo.grid(row=1, column=1, sticky="ew", padx=3, pady=(0, 3))
-        ttk.Label(form, text="Side").grid(row=0, column=2, sticky="w", padx=3)
+        form_name_combo.grid(row=1, column=1, sticky="ew", padx=3)
+        add_form_field("Amount", amount_var, 2, 9)
+        add_form_field("Third Party", third_party_var, 3, 15)
+        ttk.Label(form, text="Side").grid(row=0, column=4, sticky="w", padx=3, pady=(0, 2))
         ttk.Combobox(
             form,
             textvariable=side_var,
             values=("NAAM", "JAMA"),
             state="readonly",
-            width=9,
-        ).grid(row=1, column=2, sticky="ew", padx=3, pady=(0, 3))
-        add_form_field("Amount", amount_var, 0, 3, 12)
-        add_form_field("Balance (manual)", balance_var, 0, 4, 14)
-        add_form_field("CH", charge_var, 0, 5, 10)
-        add_form_field("Third Party", third_party_var, 2, 0, 20)
-        add_form_field("Code", code_var, 2, 1, 15)
-        ttk.Label(form, text="Category").grid(row=2, column=2, sticky="w", padx=3)
+            width=7,
+        ).grid(row=1, column=4, sticky="ew", padx=3)
+        add_form_field("CH", charge_var, 5, 7)
+        add_form_field("Code", code_var, 6, 8)
+        ttk.Label(form, text="Category").grid(row=0, column=7, sticky="w", padx=3, pady=(0, 2))
         ttk.Combobox(
             form,
             textvariable=category_var,
             values=("Regular", "Monday Final"),
             state="readonly",
-            width=14,
-        ).grid(row=3, column=2, sticky="ew", padx=3, pady=(0, 3))
-        for column in range(6):
-            form.grid_columnconfigure(column, weight=1)
+            width=10,
+        ).grid(row=1, column=7, sticky="ew", padx=3)
+        ttk.Button(form, text="OK", command=lambda: save_transaction()).grid(
+            row=1, column=8, sticky="ew", padx=3
+        )
+        ttk.Button(form, text="Close", command=window.destroy).grid(
+            row=1, column=9, sticky="ew", padx=3
+        )
+        for column, weight in enumerate((1, 2, 1, 2, 1, 1, 1, 1, 1, 1)):
+            form.grid_columnconfigure(column, weight=weight)
 
         actions = tk.Frame(window, bg=COLORS["background"])
-        actions.pack(fill="x", padx=8, pady=4)
+        actions.pack(fill="x", padx=8, pady=4, before=form)
         ttk.Button(actions, text="Delete", command=lambda: delete_selected()).pack(
             side="left", padx=2
         )
@@ -903,7 +914,7 @@ class BettingAssistant(tk.Tk):
             variable=tallied_var,
             command=lambda: toggle_tallied(),
         ).pack(side="left", padx=6)
-        ttk.Button(actions, text="All Records", command=lambda: set_filter("all")).pack(
+        ttk.Button(actions, text="+", command=lambda: set_filter("all")).pack(
             side="left", padx=2
         )
 
@@ -1082,12 +1093,6 @@ class BettingAssistant(tk.Tk):
                 )
 
         previous_button.configure(command=add_previous_balance)
-        ttk.Button(form, text="OK", command=save_transaction).grid(
-            row=3, column=4, sticky="e", padx=3, pady=(0, 3)
-        )
-        ttk.Button(form, text="Close", command=window.destroy).grid(
-            row=3, column=5, sticky="e", padx=3, pady=(0, 3)
-        )
         form_name_combo.bind("<<ComboboxSelected>>", lambda _event: load_name(name_var.get()))
         opening_entry.bind("<FocusOut>", lambda _event: persist_opening_balance())
         if name_values:
@@ -1126,10 +1131,11 @@ class BettingAssistant(tk.Tk):
         summary.pack(fill="x", padx=8, pady=4)
         naam_total_var = tk.StringVar(value="NAAM Total: 0.00")
         jama_total_var = tk.StringVar(value="JAMA Total: 0.00")
-        final_total_var = tk.StringVar(value="Final Total: Not calculated")
         ttk.Label(summary, textvariable=naam_total_var).pack(side="left", padx=8)
         ttk.Label(summary, textvariable=jama_total_var).pack(side="left", padx=18)
-        ttk.Label(summary, textvariable=final_total_var).pack(side="right", padx=8)
+        ttk.Label(summary, text="Final Total: Not calculated").pack(
+            side="right", padx=8
+        )
 
         def report_rows() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             try:
@@ -1396,6 +1402,7 @@ class BettingAssistant(tk.Tk):
         for widget in self.content.winfo_children():
             widget.destroy()
         page = {
+            "Workspace": self.build_workspace,
             "Dashboard": self.build_dashboard,
             "Matches": self.build_matches,
             "Users": self.build_users,
@@ -1405,6 +1412,9 @@ class BettingAssistant(tk.Tk):
         }[name]
         self.current_page = name
         page()
+
+    def build_workspace(self) -> None:
+        self.content.configure(bg=COLORS["background"])
 
     def open_report_mode(self, mode: str) -> None:
         handlers = {
@@ -1481,8 +1491,17 @@ class BettingAssistant(tk.Tk):
     def build_dashboard(self) -> None:
         self.page_header("Dashboard", "Overview of matches, users, and today's entries")
         metrics = DB.dashboard_metrics()
-        cards = tk.Frame(self.content, bg=COLORS["background"])
-        cards.pack(fill="x", padx=8)
+        summary = tk.LabelFrame(
+            self.content,
+            text="Today's summary",
+            bg=COLORS["panel"],
+            fg=COLORS["text"],
+            font=("Tahoma", 8, "bold"),
+            padx=6,
+            pady=6,
+            relief="groove",
+        )
+        summary.pack(fill="x", padx=8, pady=(0, 6))
         card_data = (
             ("OPEN MATCHES", str(metrics["open_matches"])),
             ("USERS", str(metrics["users"])),
@@ -1490,40 +1509,39 @@ class BettingAssistant(tk.Tk):
             ("AMOUNT TODAY", money(float(metrics["today_amount"]))),
         )
         for index, (caption, value) in enumerate(card_data):
-            card = tk.Frame(
-                cards,
-                bg=COLORS["panel"],
-                highlightbackground=COLORS["border"],
-                highlightthickness=1,
-                padx=10,
-                pady=9,
-            )
-            card.grid(row=0, column=index, sticky="ew", padx=(0 if index == 0 else 10, 0))
-            cards.grid_columnconfigure(index, weight=1)
+            cell = tk.Frame(summary, bg=COLORS["panel"], padx=4)
+            cell.grid(row=0, column=index, sticky="ew")
+            summary.grid_columnconfigure(index, weight=1)
             tk.Label(
-                card,
+                cell,
                 text=caption,
                 bg=COLORS["panel"],
-                fg=COLORS["muted"],
-                font=("Tahoma", 8, "bold"),
-            ).pack(anchor="w")
-            tk.Label(
-                card,
-                text=value,
-                bg=COLORS["panel"],
                 fg=COLORS["text"],
-                font=("Tahoma", 16, "bold"),
-            ).pack(anchor="w", pady=(8, 0))
+                font=("Tahoma", 8, "bold"),
+            ).pack(anchor="w", pady=(0, 3))
+            tk.Label(
+                cell,
+                text=value,
+                bg="#e8e8e8",
+                fg=COLORS["text"],
+                font=("Tahoma", 10, "bold"),
+                relief="sunken",
+                bd=1,
+                padx=5,
+                pady=3,
+            ).pack(fill="x")
 
-        recent = tk.Frame(self.content, bg=COLORS["background"])
-        recent.pack(fill="both", expand=True, padx=8, pady=8)
-        tk.Label(
-            recent,
+        recent = tk.LabelFrame(
+            self.content,
             text="Recent entries",
-            bg=COLORS["background"],
+            bg=COLORS["panel"],
             fg=COLORS["text"],
-            font=("Tahoma", 10, "bold"),
-        ).pack(anchor="w", pady=(0, 10))
+            font=("Tahoma", 8, "bold"),
+            padx=5,
+            pady=5,
+            relief="groove",
+        )
+        recent.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         table_frame = tk.Frame(recent, bg=COLORS["panel"])
         table_frame.pack(fill="both", expand=True)
         tree = self.make_tree(
@@ -1537,6 +1555,7 @@ class BettingAssistant(tk.Tk):
                 ("rate", "RATE", 100),
                 ("amount", "AMOUNT", 120),
             ),
+            height=15,
         )
         for row in DB.list_entries()[:15]:
             tree.insert(
@@ -1613,6 +1632,7 @@ class BettingAssistant(tk.Tk):
             selectmode="extended",
         )
         self.matches_tree.bind("<<TreeviewSelect>>", self.on_match_selected)
+        self.matches_tree.bind("<Double-1>", self.open_team_entry_window)
         self.refresh_matches()
 
     def refresh_matches(self) -> None:
@@ -1733,6 +1753,402 @@ class BettingAssistant(tk.Tk):
         self.refresh_matches()
         self.clear_match_form()
 
+    def open_team_entry_window(self, event: tk.Event) -> None:
+        clicked_item = self.matches_tree.identify_row(event.y)
+        if not clicked_item:
+            return
+        self.matches_tree.selection_set(clicked_item)
+        initial_row = next(
+            (row for row in self.match_rows if int(row["id"]) == int(clicked_item)),
+            None,
+        )
+        if initial_row is None:
+            return
+
+        window = tk.Toplevel(self)
+        window.title("Team Entry")
+        window.geometry("1080x620")
+        window.minsize(860, 560)
+        window.configure(bg=COLORS["background"])
+        window.transient(self)
+
+        column_keys = ("code", "date", "comment") + tuple(
+            f"team_{index}" for index in range(1, 13)
+        )
+        style = ttk.Style(window)
+        style.configure(
+            "TeamEntry.Treeview",
+            background="#808080",
+            fieldbackground="#808080",
+            foreground=COLORS["text"],
+            rowheight=22,
+            font=("Tahoma", 8),
+        )
+        style.map(
+            "TeamEntry.Treeview",
+            background=[("selected", "#f5a6e8")],
+            foreground=[("selected", COLORS["text"])],
+        )
+        style.configure(
+            "TeamEntry.Treeview.Heading",
+            background=COLORS["panel"],
+            foreground=COLORS["text"],
+            font=("Tahoma", 8, "bold"),
+            padding=(3, 2),
+        )
+
+        list_frame = tk.Frame(window, bg=COLORS["panel"])
+        list_frame.pack(fill="both", expand=True, padx=8, pady=(8, 4))
+        popup_tree = ttk.Treeview(
+            list_frame,
+            columns=column_keys,
+            show="headings",
+            height=8,
+            selectmode="extended",
+            style="TeamEntry.Treeview",
+        )
+        column_labels = ("CODE", "DATE", "COMMENT") + tuple(
+            f"TEAM{index}" for index in range(1, 13)
+        )
+        column_widths = (70, 105, 190) + (74,) * 12
+        for key, label, width in zip(column_keys, column_labels, column_widths):
+            popup_tree.heading(key, text=label)
+            popup_tree.column(key, width=width, minwidth=55, anchor="w")
+        vertical_scroll = ttk.Scrollbar(
+            list_frame, orient="vertical", command=popup_tree.yview
+        )
+        horizontal_scroll = ttk.Scrollbar(
+            list_frame, orient="horizontal", command=popup_tree.xview
+        )
+        popup_tree.configure(
+            yscrollcommand=vertical_scroll.set,
+            xscrollcommand=horizontal_scroll.set,
+        )
+        popup_tree.grid(row=0, column=0, sticky="nsew")
+        vertical_scroll.grid(row=0, column=1, sticky="ns")
+        horizontal_scroll.grid(row=1, column=0, sticky="ew")
+        list_frame.grid_rowconfigure(0, weight=1)
+        list_frame.grid_columnconfigure(0, weight=1)
+
+        form = tk.LabelFrame(
+            window,
+            text="Team Details",
+            bg=COLORS["panel"],
+            fg=COLORS["text"],
+            font=("Tahoma", 8, "bold"),
+            padx=7,
+            pady=5,
+        )
+        form.pack(fill="x", padx=8, pady=4)
+        popup_id: int | None = None
+        code_var = tk.StringVar()
+        date_var = tk.StringVar()
+        comment_var = tk.StringVar()
+        team_vars = [tk.StringVar() for _ in range(12)]
+        row_by_id: dict[int, sqlite3.Row] = {}
+
+        top_fields = tk.Frame(form, bg=COLORS["panel"])
+        top_fields.pack(fill="x", pady=(0, 5))
+        for column, (label, variable, width) in enumerate(
+            (
+                ("Code", code_var, 9),
+                ("Date (YYYY-MM-DD)", date_var, 15),
+                ("Comment", comment_var, 38),
+            )
+        ):
+            field = tk.Frame(top_fields, bg=COLORS["panel"])
+            field.grid(row=0, column=column, sticky="w", padx=(0, 8))
+            tk.Label(
+                field, text=label, bg=COLORS["panel"], fg=COLORS["text"]
+            ).pack(anchor="w")
+            ttk.Entry(field, textvariable=variable, width=width).pack(anchor="w")
+        top_fields.grid_columnconfigure(2, weight=1)
+
+        teams_frame = tk.Frame(form, bg=COLORS["panel"])
+        teams_frame.pack(fill="x")
+        for index, variable in enumerate(team_vars):
+            row_index, column = divmod(index, 3)
+            field = tk.Frame(teams_frame, bg=COLORS["panel"])
+            field.grid(
+                row=row_index,
+                column=column,
+                sticky="ew",
+                padx=(0, 8),
+                pady=2,
+            )
+            tk.Label(
+                field,
+                text=f"Team_{index + 1}",
+                bg=COLORS["panel"],
+                fg=COLORS["text"],
+            ).pack(anchor="w")
+            ttk.Entry(field, textvariable=variable).pack(fill="x")
+            teams_frame.grid_columnconfigure(column, weight=1)
+
+        def clear_form() -> None:
+            nonlocal popup_id
+            popup_id = None
+            code_var.set(str(DB.next_match_code()))
+            date_var.set(date.today().isoformat())
+            comment_var.set("")
+            for variable in team_vars:
+                variable.set("")
+            selection = popup_tree.selection()
+            if selection:
+                popup_tree.selection_remove(*selection)
+
+        def load_match(row: sqlite3.Row) -> None:
+            nonlocal popup_id
+            popup_id = int(row["id"])
+            code_var.set(str(row["code"]))
+            date_var.set(str(row["match_date"]))
+            comment_var.set(str(row["comment"]))
+            teams = [team.strip() for team in str(row["teams"]).split(",")]
+            for index, variable in enumerate(team_vars):
+                variable.set(teams[index] if index < len(teams) else "")
+
+        def refresh_popup(select_id: int | None = None) -> None:
+            nonlocal row_by_id
+            rows = DB.list_matches()
+            row_by_id = {int(row["id"]): row for row in rows}
+            popup_tree.delete(*popup_tree.get_children())
+            for row in rows:
+                teams = [team.strip() for team in str(row["teams"]).split(",")]
+                popup_tree.insert(
+                    "",
+                    "end",
+                    iid=str(row["id"]),
+                    values=(
+                        row["code"],
+                        row["match_date"],
+                        row["comment"],
+                        *(teams[index] if index < len(teams) else "" for index in range(12)),
+                    ),
+                )
+            if select_id is not None and select_id in row_by_id:
+                popup_tree.selection_set(str(select_id))
+                popup_tree.focus(str(select_id))
+                load_match(row_by_id[select_id])
+
+        def on_popup_select(_event: tk.Event | None = None) -> None:
+            selection = popup_tree.selection()
+            if selection:
+                row = row_by_id.get(int(selection[0]))
+                if row is not None:
+                    load_match(row)
+
+        def save_popup_match(match_id: int | None) -> bool:
+            try:
+                code = int(code_var.get().strip())
+                match_date = date_var.get().strip()
+                date.fromisoformat(match_date)
+                comment = comment_var.get().strip()
+                teams = [variable.get().strip() for variable in team_vars]
+                teams = [team for team in teams if team]
+                if not comment:
+                    raise ValueError("Enter a match comment.")
+                if len(teams) < 2:
+                    raise ValueError("Enter at least two teams.")
+                DB.save_match(match_id, code, match_date, comment, ", ".join(teams))
+            except ValueError as error:
+                messagebox.showerror("Check team details", str(error), parent=window)
+                return False
+            except sqlite3.IntegrityError as error:
+                messagebox.showerror("Could not save match", str(error), parent=window)
+                return False
+            return True
+
+        def save_new() -> None:
+            if save_popup_match(None):
+                self.refresh_matches()
+                refresh_popup()
+                clear_form()
+
+        def modify_selected() -> None:
+            if popup_id is None:
+                messagebox.showinfo(
+                    "Select a match", "Choose a match to modify.", parent=window
+                )
+                return
+            match_id = popup_id
+            if save_popup_match(match_id):
+                self.refresh_matches()
+                refresh_popup(match_id)
+
+        def delete_selected() -> None:
+            if popup_id is None:
+                messagebox.showinfo(
+                    "Select a match", "Choose a match to delete.", parent=window
+                )
+                return
+            if not messagebox.askyesno(
+                "Delete match",
+                "Delete this match? Matches with saved entries cannot be deleted.",
+                parent=window,
+            ):
+                return
+            try:
+                DB.delete_match(popup_id)
+            except sqlite3.IntegrityError:
+                messagebox.showerror(
+                    "Match has entries",
+                    "This match has saved entries and cannot be deleted.",
+                    parent=window,
+                )
+                return
+            self.refresh_matches()
+            refresh_popup()
+            clear_form()
+
+        def delete_multiple() -> None:
+            selected = popup_tree.selection()
+            if not selected:
+                messagebox.showinfo(
+                    "Select matches", "Choose one or more matches to delete.", parent=window
+                )
+                return
+            if not messagebox.askyesno(
+                "Delete matches",
+                f"Delete {len(selected)} selected match(es)? Matches with saved entries cannot be deleted.",
+                parent=window,
+            ):
+                return
+            try:
+                DB.delete_matches([int(item) for item in selected])
+            except sqlite3.IntegrityError:
+                messagebox.showerror(
+                    "Some matches have entries",
+                    "No selected matches were deleted because at least one contains saved entries.",
+                    parent=window,
+                )
+                return
+            self.refresh_matches()
+            refresh_popup()
+            clear_form()
+
+        popup_tree.bind("<<TreeviewSelect>>", on_popup_select)
+
+        actions = tk.Frame(window, bg=COLORS["background"])
+        actions.pack(fill="x", padx=8, pady=(3, 8))
+        ttk.Button(actions, text="Save", command=save_new).pack(side="left", padx=2)
+        ttk.Button(actions, text="Delete", command=delete_selected).pack(
+            side="left", padx=2
+        )
+        ttk.Button(actions, text="Modify", command=modify_selected).pack(
+            side="left", padx=2
+        )
+        ttk.Button(
+            actions,
+            text="Print",
+            command=lambda: self.print_tree(popup_tree, "Team Entry"),
+        ).pack(side="left", padx=2)
+        ttk.Button(actions, text="Close", command=window.destroy).pack(
+            side="left", padx=2
+        )
+        ttk.Button(actions, text="Clear", command=clear_form).pack(
+            side="left", padx=2
+        )
+        ttk.Button(actions, text="Multiple Delete", command=delete_multiple).pack(
+            side="left", padx=2
+        )
+        ttk.Button(
+            actions,
+            text="Log",
+            command=lambda: self.show_logs("match", popup_id),
+        ).pack(side="left", padx=2)
+
+        refresh_popup(int(initial_row["id"]))
+
+    def refresh_state_ref_choices(self) -> None:
+        combo = getattr(self, "user_state_ref_combo", None)
+        if combo is None or not combo.winfo_exists():
+            return
+        combo.configure(values=[row["name"] for row in DB.list_state_refs()])
+
+    def open_state_ref_window(self) -> None:
+        window = tk.Toplevel(self)
+        window.title("State")
+        window.geometry("360x420")
+        window.minsize(300, 320)
+        window.configure(bg=COLORS["background"])
+        window.transient(self)
+
+        table = tk.Frame(window, bg=COLORS["panel"])
+        table.pack(fill="both", expand=True, padx=8, pady=8)
+        tree = self.make_tree(
+            table,
+            (("sl", "Sl", 55), ("name", "States", 230)),
+            height=14,
+            selectmode="extended",
+        )
+
+        def refresh() -> None:
+            rows = DB.list_state_refs()
+            tree.delete(*tree.get_children())
+            for index, row in enumerate(rows, start=1):
+                tree.insert(
+                    "",
+                    "end",
+                    iid=str(row["id"]),
+                    values=(index, row["name"]),
+                )
+
+        def delete_selected() -> None:
+            selected = tree.selection()
+            if not selected:
+                messagebox.showinfo(
+                    "Select State/Ref",
+                    "Choose one or more State/Ref values to delete.",
+                    parent=window,
+                )
+                return
+            if not messagebox.askyesno(
+                "Delete State/Ref",
+                f"Delete {len(selected)} selected State/Ref value(s)?",
+                parent=window,
+            ):
+                return
+            try:
+                DB.delete_state_refs([int(item) for item in selected])
+                refresh()
+                self.refresh_state_ref_choices()
+            except sqlite3.Error as error:
+                messagebox.showerror(
+                    "Could not delete State/Ref values", str(error), parent=window
+                )
+
+        def clear_values() -> None:
+            rows = DB.list_state_refs()
+            if not rows:
+                return
+            if not messagebox.askyesno(
+                "Clear State/Ref",
+                "Remove all reusable State/Ref choices? Values saved on users will remain unchanged.",
+                parent=window,
+            ):
+                return
+            try:
+                DB.delete_state_refs([int(row["id"]) for row in rows])
+                refresh()
+                self.refresh_state_ref_choices()
+            except sqlite3.Error as error:
+                messagebox.showerror(
+                    "Could not clear State/Ref values", str(error), parent=window
+                )
+
+        actions = tk.Frame(window, bg=COLORS["background"])
+        actions.pack(fill="x", padx=8, pady=(0, 8))
+        ttk.Button(actions, text="Delete", command=delete_selected).pack(
+            side="left", padx=3
+        )
+        ttk.Button(actions, text="Close", command=window.destroy).pack(
+            side="left", padx=3
+        )
+        ttk.Button(actions, text="Clear", command=clear_values).pack(
+            side="left", padx=3
+        )
+        refresh()
+
     def build_users(self) -> None:
         self.page_header(
             "Users & references",
@@ -1744,14 +2160,31 @@ class BettingAssistant(tk.Tk):
         actions.pack(fill="x", pady=(0, 12))
         self.user_search_var = tk.StringVar()
         ttk.Label(actions, text="Search").pack(side="left", padx=(0, 5))
-        search_entry = ttk.Entry(actions, textvariable=self.user_search_var, width=28)
+        search_entry = ttk.Entry(
+            actions, textvariable=self.user_search_var, width=28
+        )
         search_entry.pack(side="left", padx=(0, 8))
         self.user_search_var.trace_add("write", lambda *_args: self.refresh_users())
-        ttk.Button(actions, text="Search", command=self.refresh_users).pack(side="left")
-        ttk.Button(actions, text="Add user", style="Accent.TButton", command=lambda: self.open_user_form(None)).pack(side="left", padx=7)
-        ttk.Button(actions, text="Edit selected", command=self.edit_user).pack(side="left", padx=7)
-        ttk.Button(actions, text="Delete selected", command=self.delete_users).pack(side="left")
-        ttk.Button(actions, text="Log", command=lambda: self.show_logs("user", self.selected_user_id())).pack(side="left", padx=7)
+        ttk.Button(actions, text="Search", command=self.refresh_users).pack(
+            side="left", padx=(0, 7)
+        )
+        ttk.Button(
+            actions,
+            text="Add user",
+            style="Accent.TButton",
+            command=lambda: self.open_user_form(None),
+        ).pack(side="left", padx=2)
+        ttk.Button(actions, text="Edit selected", command=self.edit_user).pack(
+            side="left", padx=2
+        )
+        ttk.Button(actions, text="Delete selected", command=self.delete_users).pack(
+            side="left", padx=2
+        )
+        ttk.Button(
+            actions,
+            text="Log",
+            command=lambda: self.show_logs("user", self.selected_user_id()),
+        ).pack(side="left", padx=2)
 
         table = tk.Frame(container, bg=COLORS["panel"])
         table.pack(fill="both", expand=True)
@@ -1769,6 +2202,7 @@ class BettingAssistant(tk.Tk):
             selectmode="extended",
         )
         self.users_tree.bind("<Double-1>", lambda _event: self.edit_user())
+        search_entry.focus_set()
         self.refresh_users()
 
     def refresh_users(self) -> None:
@@ -1876,6 +2310,8 @@ class BettingAssistant(tk.Tk):
 
         vars: dict[str, tk.StringVar] = {}
         bool_vars: dict[str, tk.BooleanVar] = {}
+        self.user_state_ref_combo: ttk.Combobox | None = None
+        state_ref_values = [item["name"] for item in DB.list_state_refs()]
 
         def section(title: str, fields: tuple[tuple[str, str], ...], columns: int = 2) -> None:
             frame = tk.LabelFrame(
@@ -1913,6 +2349,15 @@ class BettingAssistant(tk.Tk):
                         state="readonly",
                         width=31,
                     ).pack(anchor="w")
+                elif field == "state_ref":
+                    self.user_state_ref_combo = ttk.Combobox(
+                        cell,
+                        textvariable=vars[field],
+                        values=state_ref_values,
+                        state="normal",
+                        width=34,
+                    )
+                    self.user_state_ref_combo.pack(anchor="w")
                 else:
                     ttk.Entry(cell, textvariable=vars[field], width=34).pack(anchor="w")
                 frame.grid_columnconfigure(position, weight=1)
@@ -2008,6 +2453,7 @@ class BettingAssistant(tk.Tk):
             except sqlite3.Error as error:
                 messagebox.showerror("Could not save user", str(error), parent=window)
                 return
+            self.refresh_state_ref_choices()
             self.refresh_users()
             window.destroy()
 
@@ -3197,7 +3643,6 @@ class BettingAssistant(tk.Tk):
         container = tk.Frame(self.content, bg=COLORS["background"])
         container.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         choices = (
-            ("Connect Report", "Select and combine matches"),
             ("Individual Report", "Review one user's match entries"),
             ("Session Individual Report", "Review sessions and run totals"),
             ("User Account", "Review match accounts by state/reference"),
@@ -3560,8 +4005,9 @@ class BettingAssistant(tk.Tk):
         )
         match_combo.grid(row=1, column=2, columnspan=3, sticky="w", padx=4, pady=(7, 0))
         actual_var = tk.BooleanVar(value=True)
-        status_var = tk.StringVar(value="A: Not calculated     B: Not calculated")
-        ttk.Label(window, textvariable=status_var).pack(anchor="w", padx=12, pady=(0, 5))
+        ttk.Label(
+            window, text="A: Not calculated     B: Not calculated"
+        ).pack(anchor="w", padx=12, pady=(0, 5))
         table_frame = tk.Frame(window, bg=COLORS["panel"])
         table_frame.pack(fill="both", expand=True, padx=8)
         columns = (
@@ -3749,11 +4195,12 @@ class BettingAssistant(tk.Tk):
         detail_frame = tk.Frame(left_frame, bg=COLORS["panel"])
         detail_frame.grid(row=0, column=0, sticky="nsew")
         lower_frame = tk.Frame(
-            left_frame, bg=COLORS["panel"], height=95, padx=8, pady=5
+            left_frame, bg=COLORS["panel"], height=125, padx=8, pady=5
         )
         lower_frame.grid(row=1, column=0, sticky="nsew", pady=(7, 0))
         lower_frame.grid_propagate(False)
         lower_frame.grid_columnconfigure(0, weight=1)
+        lower_frame.grid_columnconfigure(1, weight=0)
         run_frame = tk.Frame(body, bg=COLORS["panel"])
         run_frame.grid(row=0, column=1, sticky="nsew")
         tree = self.make_tree(
@@ -3797,21 +4244,26 @@ class BettingAssistant(tk.Tk):
         summary = tk.Frame(lower_frame, bg=COLORS["panel"])
         summary.grid(row=0, column=1, rowspan=2, sticky="e", padx=(8, 0))
         session_total_var = tk.StringVar(value="0.00")
-        commission_var = tk.StringVar(value="Not calculated")
-        total_amount_var = tk.StringVar(value="Not calculated")
         for index, (label, variable) in enumerate(
             (
                 ("Session Total", session_total_var),
-                ("Commission", commission_var),
-                ("Total Amount", total_amount_var),
+                ("Commission", None),
+                ("Total Amount", None),
             )
         ):
             ttk.Label(summary, text=label).grid(row=index, column=0, sticky="e", padx=(0, 4))
-            ttk.Label(summary, textvariable=variable, relief="sunken", width=14).grid(
+            value_label = (
+                ttk.Label(summary, text="Not calculated", relief="sunken", width=14)
+                if variable is None
+                else ttk.Label(
+                    summary, textvariable=variable, relief="sunken", width=14
+                )
+            )
+            value_label.grid(
                 row=index, column=1, sticky="e", pady=1
             )
-        actions = tk.Frame(window, bg=COLORS["background"])
-        actions.pack(fill="x", padx=8, pady=(0, 8))
+        actions = tk.Frame(lower_frame, bg=COLORS["panel"])
+        actions.grid(row=2, column=1, sticky="e", padx=(8, 0), pady=(3, 0))
 
         def selected_match_ids() -> list[int]:
             if select_all_var.get():

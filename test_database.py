@@ -34,6 +34,40 @@ class DatabaseTests(unittest.TestCase):
         self.database.save_user(None, values)
         return int(self.database.list_users()[-1]["id"])
 
+    def test_state_refs_are_reusable_and_separate_from_user_values(self) -> None:
+        self.create_user("North user", "North")
+        self.create_user("Another North user", "north")
+        self.create_user("South user", "South")
+
+        state_refs = self.database.list_state_refs()
+        self.assertEqual([row["name"] for row in state_refs], ["North", "South"])
+        north_id = int(state_refs[0]["id"])
+
+        self.database.delete_state_refs([north_id])
+        self.assertEqual(
+            [row["name"] for row in self.database.list_state_refs()], ["South"]
+        )
+        self.assertEqual(
+            {row["state_ref"] for row in self.database.list_users()},
+            {"North", "north", "South"},
+        )
+
+        self.database = Database(self.database.path)
+        self.assertEqual(
+            [row["name"] for row in self.database.list_state_refs()], ["South"]
+        )
+
+    def test_state_ref_migration_backfills_existing_user_values(self) -> None:
+        self.create_user("Existing user", "Central")
+        with self.database.connect() as connection:
+            connection.execute("DROP TABLE state_refs")
+
+        self.database = Database(self.database.path)
+
+        self.assertEqual(
+            [row["name"] for row in self.database.list_state_refs()], ["Central"]
+        )
+
     def test_books_audit_log_and_multi_match_entry_filters(self) -> None:
         self.database.save_match(None, 101, "2026-11-14", "Match one", "Falcons, Hawks")
         self.database.save_match(None, 102, "2026-11-15", "Match two", "Falcons, Hawks")
@@ -306,6 +340,9 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(result, {"matches": 1, "users": 1, "entries": 1})
         self.assertEqual(len(self.database.list_matches()), 1)
         self.assertEqual(len(self.database.list_users()), 1)
+        self.assertEqual(
+            [row["name"] for row in self.database.list_state_refs()], ["North"]
+        )
         imported_entries = self.database.list_entries()
         self.assertEqual(len(imported_entries), 1)
         self.assertEqual(imported_entries[0]["user_name"], "Imported user")
@@ -324,6 +361,7 @@ class DatabaseTests(unittest.TestCase):
         self.database.clear_application_data()
         self.assertEqual(self.database.list_matches(), [])
         self.assertEqual(self.database.list_users(), [])
+        self.assertEqual(self.database.list_state_refs(), [])
         self.assertEqual(self.database.list_entries(), [])
 
     def test_failed_old_database_import_rolls_back_partial_records(self) -> None:
